@@ -1,37 +1,44 @@
 package io.github.jogo;
 
-import com.badlogic.gdx.math.Rectangle;
+import com.badlogic.gdx.math.Vector2;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Random;
 
 public class Room {
-    public List<Rectangle> obstacles = new ArrayList<>();
-    public List<Enemy> enemies = new ArrayList<>();
-    private Random random = new Random();
+    private List<Enemy> enemies = new ArrayList<>();
+    private List<Wall> walls = new ArrayList<>();
+    private Player player;
 
-    public void generate() {
-        obstacles.clear();
-        enemies.clear();
-
-        // Obstáculos aleatórios
-        int numObs = 3 + random.nextInt(4); // 3-6
-        for (int i = 0; i < numObs; i++) {
-            float x = random.nextInt(700);
-            float y = random.nextInt(500);
-            obstacles.add(new Rectangle(x, y, 32, 32));
-        }
-
-        // Inimigos aleatórios
-        int numEnemies = 1 + random.nextInt(4); // 1-4
-        for (int i = 0; i < numEnemies; i++) {
-            float x = random.nextInt(700);
-            float y = random.nextInt(500);
-            enemies.add(new Enemy(x, y));
-        }
+    public Room(Player player) {
+        this.player = player;
     }
 
-    public void dispose() {
-        for (Enemy e : enemies) e.dispose();
+    public void spawnEnemy(Enemy e) {
+        enemies.add(e);
+    }
+
+    public void addWall(Wall wall) {
+        walls.add(wall);
+    }
+
+    public boolean isCollidingWithWalls(Vector2 pos) {
+        for (Wall wall : walls) {
+            if (wall.getBounds().contains(pos)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public List<Enemy> getEnemies() {
+        return enemies;
+    }
+
+    public List<Wall> getWalls() {
+        return walls;
+    }
+
+    public Player getPlayer() {
+        return player;
     }
 }

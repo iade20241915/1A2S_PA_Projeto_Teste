@@ -2,36 +2,34 @@ package io.github.jogo;
 
 import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
-import com.badlogic.gdx.math.Rectangle;
+import com.badlogic.gdx.math.Vector2;
 
 public class Enemy {
-    private float x, y;
-    private int health = 20;
+    private Vector2 position;
     private Texture texture;
+    private float speed = 40;
 
     public Enemy(float x, float y) {
-        this.x = x;
-        this.y = y;
-        texture = new Texture("images/skeleton.png");
+        this.position = new Vector2(x, y);
+        this.texture = new Texture("images/skeleton.png");
+    }
+
+    public void update(float delta, Room room) {
+        if (room.getPlayer().getHealth() <= 0) return;
+
+        Vector2 dir = new Vector2(room.getPlayer().getPosition()).sub(position).nor();
+        Vector2 newPos = new Vector2(position).mulAdd(dir, speed * delta);
+
+        if (!room.isCollidingWithWalls(newPos)) {
+            position.set(newPos);
+        }
+
+        if (position.dst(room.getPlayer().getPosition()) < 20) {
+            room.getPlayer().takeDamage(10);
+        }
     }
 
     public void render(SpriteBatch batch) {
-        if (isAlive()) batch.draw(texture, x, y);
-    }
-
-    public boolean isAlive() {
-        return health > 0;
-    }
-
-    public void takeDamage(int dmg) {
-        health -= dmg;
-    }
-
-    public Rectangle getRect() {
-        return new Rectangle(x, y, 32, 32);
-    }
-
-    public void dispose() {
-        texture.dispose();
+        batch.draw(texture, position.x, position.y);
     }
 }

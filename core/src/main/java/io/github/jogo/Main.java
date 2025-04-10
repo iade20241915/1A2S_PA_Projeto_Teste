@@ -2,113 +2,92 @@ package io.github.jogo;
 
 import com.badlogic.gdx.ApplicationAdapter;
 import com.badlogic.gdx.Gdx;
-import com.badlogic.gdx.Input;
 import com.badlogic.gdx.graphics.GL20;
+import com.badlogic.gdx.graphics.Pixmap;
 import com.badlogic.gdx.graphics.Texture;
+import com.badlogic.gdx.graphics.g2d.BitmapFont;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
-import com.badlogic.gdx.math.Rectangle;
+import com.badlogic.gdx.scenes.scene2d.Stage;
+import com.badlogic.gdx.scenes.scene2d.ui.ProgressBar;
+import com.badlogic.gdx.scenes.scene2d.ui.ProgressBar.ProgressBarStyle;
+import com.badlogic.gdx.utils.viewport.ScreenViewport;
+import com.badlogic.gdx.scenes.scene2d.utils.TextureRegionDrawable;
+import com.badlogic.gdx.graphics.g2d.TextureRegion;
 
-import java.util.List;
-
-/** {@link com.badlogic.gdx.ApplicationListener} implementation shared by all platforms. */
 public class Main extends ApplicationAdapter {
     private SpriteBatch batch;
-    private Texture knight, background, wall;
-    float x, y;
-    Room[][] rooms;
-    int roomX = 0, roomY = 0;
-
+    private Player player;
+    private Dungeon dungeon;
+    private int currentRoomX = 0;
+    private int currentRoomY = 0;
+    private BitmapFont font;
+    private Stage stage;
+    private ProgressBar healthBar;
 
     @Override
     public void create() {
-        //batch = new SpriteBatch();
-        //image = new Texture("libgdx.png");
         batch = new SpriteBatch();
-        knight = new Texture("images/knight.png");
-        background = new Texture("images/background_dungeon.png");
-        wall = new Texture("images/wall.png");
+        font = new BitmapFont();
+        player = new Player(100, 100);
+        dungeon = new Dungeon(3, 1, player);
+        dungeon.getRoom(0, 0).spawnEnemy(new Enemy(400, 300));
+        dungeon.getRoom(0, 0).addWall(new Wall(300, 300, 32, 32));
+        dungeon.getRoom(0, 0).addWall(new Wall(500, 200, 32, 32));
+        dungeon.getRoom(0, 0).addWall(new Wall(400, 120, 32, 32));
 
-
-        rooms = new Room[3][1]; // 3 salas na horizontal
-        for (int i = 0; i < 3; i++) {
-            rooms[i][0] = new Room();
-            rooms[i][0].generate(); // geração das casas
-        }
-
-        x = 100;
-        y = 100;
+        // Progress bar manual
+        stage = new Stage(new ScreenViewport());
+        Pixmap pixGreen = new Pixmap(1, 1, Pixmap.Format.RGBA8888);
+        pixGreen.setColor(0, 1, 0, 1);
+        pixGreen.fill();
+        Texture tex = new Texture("images/knight.png");
+        ProgressBarStyle style = new ProgressBarStyle();
+        style.background = new TextureRegionDrawable(new TextureRegion(new Texture("images/wall.png")));
+        style.knobBefore = new TextureRegionDrawable(new TextureRegion(tex));
+        healthBar = new ProgressBar(0, player.getMaxHealth(), 1, false, style);
+        healthBar.setValue(player.getHealth());
+        healthBar.setSize(200, 20);
+        healthBar.setPosition(10, Gdx.graphics.getHeight() - 30);
+        stage.addActor(healthBar);
     }
 
     @Override
     public void render() {
-        float delta = Gdx.graphics.getDeltaTime();
-        float speed = 200 * delta;
-        float newX = x, newY = y;
-
-        if (Gdx.input.isKeyPressed(Input.Keys.LEFT)) newX -= speed;
-        if (Gdx.input.isKeyPressed(Input.Keys.RIGHT)) newX += speed;
-        if (Gdx.input.isKeyPressed(Input.Keys.UP)) newY += speed;
-        if (Gdx.input.isKeyPressed(Input.Keys.DOWN)) newY -= speed;
-
-        Rectangle future = new Rectangle(newX, newY, 32, 32);
-        boolean collision = false;
-        for (Rectangle r : getCurrentRoom().obstacles) {
-            if (r.overlaps(future)) {
-                collision = true;
-                break;
-            }
-        }
-
-        if (!collision) {
-            x = newX;
-            y = newY;
-        }
-
-        // Transição de salas
-        if (x > 800) {
-            if (roomX < rooms.length - 1) { roomX++; x = 0; }
-        } else if (x < 0) {
-            if (roomX > 0) { roomX--; x = 800; }
-        }
-
-        // Combate
-        if (Gdx.input.isKeyJustPressed(Input.Keys.SPACE)) {
-            Rectangle playerRect = new Rectangle(x, y, 32, 32);
-            for (Enemy e : getCurrentRoom().enemies) {
-                if (e.isAlive() && e.getRect().overlaps(playerRect)) {
-                    e.takeDamage(10);
-                    break;
-                }
-            }
-        }
-
-        // Render
         Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
+
+        player.update(Gdx.graphics.getDeltaTime(), getCurrentRoom());
+
         batch.begin();
-        batch.draw(background, 0, 0);
-        for (Rectangle r : getCurrentRoom().obstacles) {
-            batch.draw(wall, r.x, r.y);
+        for (Wall wall : getCurrentRoom().getWalls()) {
+            batch.draw(wall.getTexture(), wall.getBounds().x, wall.getBounds().y);
         }
-        for (Enemy e : getCurrentRoom().enemies) {
-            e.render(batch);
+
+        for (Enemy enemy : getCurrentRoom().getEnemies()) {
+            enemy.update(Gdx.graphics.getDeltaTime(), getCurrentRoom());
+            enemy.render(batch);
         }
-        batch.draw(knight, x, y);
+
+        player.render(batch);
+
+        if (player.getHealth() <= 0) {
+            font.draw(batch, "GAME OVER", 350, 300);
+        }
+
         batch.end();
+
+        healthBar.setValue(player.getHealth());
+        stage.act(Gdx.graphics.getDeltaTime());
+        stage.draw();
     }
 
-    public Room getCurrentRoom() {
-        return rooms[roomX][roomY];
+    private Room getCurrentRoom() {
+        return dungeon.getRoom(currentRoomX, currentRoomY);
     }
 
     @Override
     public void dispose() {
         batch.dispose();
-        knight.dispose();
-        background.dispose();
-        wall.dispose();
-        for (Room[] row : rooms)
-            for (Room r : row)
-                if (r != null)
-                    r.dispose();
+        font.dispose();
+        stage.dispose();
     }
 }
